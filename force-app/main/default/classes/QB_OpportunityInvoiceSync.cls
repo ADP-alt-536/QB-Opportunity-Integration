@@ -14,7 +14,7 @@ public with sharing class QB_OpportunityInvoiceSync {
         public Id opportunityId;
 
         @InvocableVariable(required=false)
-        public String defaultItemRef; // QuickBooks Item Id used for the single line; default '1'
+        public String defaultItemRef;
     }
 
     public class Output {
@@ -30,12 +30,11 @@ public with sharing class QB_OpportunityInvoiceSync {
         public Boolean success;
     }
 
-    @InvocableMethod(label='Sync Opportunity to QuickBooks Invoice' description='Creates/ensures QuickBooks Customer for the Account, then creates an Invoice for the Opportunity when Stage=Paid.')
+    @InvocableMethod(label='Sync Opportunity to QuickBooks Invoice'
+                    ,description='Creates/ensures QuickBooks Customer for the Account, then creates an Invoice for the Opportunity when Stage=Paid.')
     public static List<Output> sync(List<Input> inputs) {
         List<Output> results = new List<Output>();
-        if (inputs == null || inputs.isEmpty()) {
-            return results;
-        }
+        if (inputs == null || inputs.isEmpty()) return results;
 
         // Collect Opportunity Ids
         Set<Id> oppIds = new Set<Id>();
@@ -56,10 +55,12 @@ public with sharing class QB_OpportunityInvoiceSync {
             WHERE Id IN :oppIds
             WITH USER_MODE
         ]);
+
         Set<Id> accountIds = new Set<Id>();
         for (Opportunity o : opps.values()) {
             if (o.AccountId != null) accountIds.add(o.AccountId);
         }
+
         Map<Id, Account> accounts = accountIds.isEmpty() ? new Map<Id, Account>() :
             new Map<Id, Account>([
                 SELECT Id, Name, Phone, PersonEmail__c, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
@@ -72,9 +73,10 @@ public with sharing class QB_OpportunityInvoiceSync {
         // Process each input
         for (Input inRec : inputs) {
             Output outRec = new Output();
-            outRec.opportunityId = inRec != null ? inRec.opportunityId : null;
+            outRec.opportunityId = (inRec != null) ? inRec.opportunityId : null;
             outRec.success = false;
             String defaultItem = itemOverride.containsKey(outRec.opportunityId) ? itemOverride.get(outRec.opportunityId) : '1';
+
             try {
                 Opportunity opp = opps.get(outRec.opportunityId);
                 if (opp == null) {
@@ -92,13 +94,15 @@ public with sharing class QB_OpportunityInvoiceSync {
                     results.add(outRec);
                     continue;
                 }
+
                 Account acc = accounts.get(opp.AccountId);
                 if (acc == null) {
                     outRec.message = 'Account not found';
                     results.add(outRec);
                     continue;
                 }
-                if (String.isBlank((String)acc.get('QuickBooks_Company_Id__c'))) {
+
+                if (String.isBlank(acc.QuickBooks_Company_Id__c)) {
                     outRec.message = 'Missing QuickBooks Company Id (realmId) on Account';
                     results.add(outRec);
                     continue;
@@ -114,11 +118,13 @@ public with sharing class QB_OpportunityInvoiceSync {
                 outRec.quickBooksInvoiceId = invoiceId;
                 outRec.success = true;
                 outRec.message = 'Invoice created';
+
             } catch (Exception ex) {
                 outRec.message = 'Error: ' + ex.getMessage();
             }
             results.add(outRec);
         }
+
         return results;
     }
 }
