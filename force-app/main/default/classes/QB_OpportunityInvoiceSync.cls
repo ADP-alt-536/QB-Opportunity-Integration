@@ -30,11 +30,12 @@ public with sharing class QB_OpportunityInvoiceSync {
         public Boolean success;
     }
 
-    @InvocableMethod(label='Sync Opportunity to QuickBooks Invoice'
-                    ,description='Creates/ensures QuickBooks Customer for the Account, then creates an Invoice for the Opportunity when Stage=Paid.')
+    @InvocableMethod(label='Sync Opportunity to QuickBooks Invoice', description='Creates/ensures QuickBooks Customer for the Account, then creates an Invoice for the Opportunity when Stage=Paid.')
     public static List<Output> sync(List<Input> inputs) {
         List<Output> results = new List<Output>();
-        if (inputs == null || inputs.isEmpty()) return results;
+        if (inputs == null || inputs.isEmpty()) {
+            return results;
+        }
 
         // Collect Opportunity Ids
         Set<Id> oppIds = new Set<Id>();
