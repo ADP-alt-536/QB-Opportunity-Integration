@@ -40,10 +40,10 @@ private class QB_OpportunitySyncTests {
             Name = 'Acme Corp',
             Phone = '555-111-2222',
             BillingStreet = '1 Main',
-            BillingCity = 'SF',
+            BillingCity = 'San Francisco',
             BillingState = 'CA',
             BillingPostalCode = '94105',
-            BillingCountry = 'US'
+            BillingCountry = 'United S'
         );
         insert a;
 

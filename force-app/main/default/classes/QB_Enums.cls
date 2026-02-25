@@ -4,7 +4,7 @@
  */
 public with sharing class QB_Enums {
     public enum InvoiceStatus {
-        OPEN, PAID, VOID
+        OPEN, PAID
     }
     public enum HttpMethod {
         GET, POST, PUT, DELETE_METHOD, PATCH
