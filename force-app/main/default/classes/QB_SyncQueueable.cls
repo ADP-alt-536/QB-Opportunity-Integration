@@ -20,21 +20,20 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
     public void execute(QueueableContext qc) {
         if (opportunityIds.isEmpty()) return;
 
-        // Build invocable inputs in manageable batches
         final Integer CHUNK = 100;
+
         for (Integer i = 0; i < opportunityIds.size(); i += CHUNK) {
             List<Id> slice = opportunityIds.subList(i, Math.min(i + CHUNK, opportunityIds.size()));
             List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
+
             for (Id oppId : slice) {
                 QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
                 inRec.opportunityId = oppId;
                 inRec.defaultItemRef = defaultItemRef;
                 inputs.add(inRec);
             }
-            // Invoke
-            List<QB_OpportunityInvoiceSync.Output> outs = QB_OpportunityInvoiceSync.sync(inputs);
-            // Optionally handle logging here (success/fail)
-            // Keep minimal per requirements
+
+            QB_OpportunityInvoiceSync.sync(inputs);
         }
     }
 }
