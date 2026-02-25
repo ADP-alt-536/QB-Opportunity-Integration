@@ -1,67 +1,38 @@
-/**
- * @description Invocable orchestrator to sync Opportunity -> QuickBooks Invoice when Stage = Paid.
- * - Ensures Account has QuickBooks Customer (creates if Account.QuickBooks_Customer_Id__c is blank)
- * - Creates Invoice in QuickBooks using single non-taxable line from Opportunity Amount
- * - Writes back QuickBooks_Invoice_Id__c on Opportunity
- * Designed for use from Flows and from the Queueable/Trigger handler.
- * Complies with bulkification and governor best practices.
- * Note: Default ItemRef is a placeholder '1' unless overridden via input.
- */
 public with sharing class QB_OpportunityInvoiceSync {
 
-    public class Input {
-        @InvocableVariable(required=true)
-        public Id opportunityId;
-
-        @InvocableVariable(required=false)
-        public String defaultItemRef;
-    }
-
+    // Output structure for results
     public class Output {
-        @InvocableVariable
         public Id opportunityId;
-        @InvocableVariable
         public String quickBooksInvoiceId;
-        @InvocableVariable
         public String quickBooksCustomerId;
-        @InvocableVariable
         public String message;
-        @InvocableVariable
         public Boolean success;
     }
 
-    @InvocableMethod(label='Sync Opportunity to QuickBooks Invoice', description='Creates/ensures QuickBooks Customer for the Account, then creates an Invoice for the Opportunity when Stage=Paid.')
-    public static List<Output> sync(List<Input> inputs) {
+    /**
+     * Syncs Opportunities to QuickBooks Invoices.
+     * Accepts a list of Opportunity IDs, ensures the Account exists in QuickBooks,
+     * and creates an Invoice for Opportunities in Stage=Paid.
+     */
+    public static List<Output> syncOpportunities(List<Id> opportunityIds) {
         List<Output> results = new List<Output>();
-        if (inputs == null || inputs.isEmpty()) {
-            return results;
-        }
+        if (opportunityIds == null || opportunityIds.isEmpty()) return results;
 
-        // Collect Opportunity Ids
-        Set<Id> oppIds = new Set<Id>();
-        Map<Id, String> itemOverride = new Map<Id, String>();
-        for (Input inRec : inputs) {
-            if (inRec == null || inRec.opportunityId == null) continue;
-            oppIds.add(inRec.opportunityId);
-            if (!String.isBlank(inRec.defaultItemRef)) {
-                itemOverride.put(inRec.opportunityId, inRec.defaultItemRef);
-            }
-        }
-        if (oppIds.isEmpty()) return results;
-
-        // Load Opportunities with Account
+        // Load Opportunities
         Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
             SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c
             FROM Opportunity
-            WHERE Id IN :oppIds
+            WHERE Id IN :opportunityIds
             WITH USER_MODE
         ]);
 
+        // Collect Account IDs
         Set<Id> accountIds = new Set<Id>();
         for (Opportunity o : opps.values()) {
             if (o.AccountId != null) accountIds.add(o.AccountId);
         }
 
+        // Load Accounts
         Map<Id, Account> accounts = accountIds.isEmpty() ? new Map<Id, Account>() :
             new Map<Id, Account>([
                 SELECT Id, Name, Phone, PersonEmail__c, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
@@ -71,25 +42,26 @@ public with sharing class QB_OpportunityInvoiceSync {
                 WITH USER_MODE
             ]);
 
-        // Process each input
-        for (Input inRec : inputs) {
+        // Process each Opportunity
+        for (Id oppId : opportunityIds) {
             Output outRec = new Output();
-            outRec.opportunityId = (inRec != null) ? inRec.opportunityId : null;
+            outRec.opportunityId = oppId;
             outRec.success = false;
-            String defaultItem = itemOverride.containsKey(outRec.opportunityId) ? itemOverride.get(outRec.opportunityId) : '1';
 
             try {
-                Opportunity opp = opps.get(outRec.opportunityId);
+                Opportunity opp = opps.get(oppId);
                 if (opp == null) {
                     outRec.message = 'Opportunity not found';
                     results.add(outRec);
                     continue;
                 }
+
                 if (opp.StageName != QB_Enums.STAGE_PAID) {
                     outRec.message = 'Opportunity Stage is not Paid; skipping';
                     results.add(outRec);
                     continue;
                 }
+
                 if (opp.AccountId == null) {
                     outRec.message = 'Opportunity has no Account';
                     results.add(outRec);
@@ -109,11 +81,11 @@ public with sharing class QB_OpportunityInvoiceSync {
                     continue;
                 }
 
-                // Ensure Customer
+                // Ensure Customer in QuickBooks
                 String customerId = QB_Service.ensureCustomer(acc);
 
-                // Create Invoice (non-taxable, single line from Amount)
-                String invoiceId = QB_Service.createInvoiceFromOpportunity(opp, acc, customerId, defaultItem);
+                // Create Invoice in QuickBooks
+                String invoiceId = QB_Service.createInvoiceFromOpportunity(opp, acc, customerId, '1');
 
                 outRec.quickBooksCustomerId = customerId;
                 outRec.quickBooksInvoiceId = invoiceId;
@@ -123,6 +95,7 @@ public with sharing class QB_OpportunityInvoiceSync {
             } catch (Exception ex) {
                 outRec.message = 'Error: ' + ex.getMessage();
             }
+
             results.add(outRec);
         }
 
