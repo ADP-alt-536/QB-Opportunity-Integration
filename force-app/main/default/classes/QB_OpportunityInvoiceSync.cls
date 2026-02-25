@@ -2,7 +2,7 @@ public with sharing class QB_OpportunityInvoiceSync {
 
     public class Input {
         public Id opportunityId;
-        public String defaultItemRef;
+        public String defaultItemRef; // Optional, default '1'
     }
 
     public class Output {
@@ -15,11 +15,9 @@ public with sharing class QB_OpportunityInvoiceSync {
 
     public static List<Output> sync(List<Input> inputs) {
         List<Output> results = new List<Output>();
-        if (inputs == null || inputs.isEmpty()) {
-            return results;
-        }
+        if (inputs == null || inputs.isEmpty()) return results;
 
-        // Collect Opportunity Ids
+        // Collect Opportunity Ids and defaultItem overrides
         Set<Id> oppIds = new Set<Id>();
         Map<Id, String> itemOverride = new Map<Id, String>();
         for (Input inRec : inputs) {
@@ -31,33 +29,34 @@ public with sharing class QB_OpportunityInvoiceSync {
         }
         if (oppIds.isEmpty()) return results;
 
-        // Load Opportunities
-        Map<Id, Opportunity> opps = new Map<Id, Opportunity>(
-            [SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c
-             FROM Opportunity
-             WHERE Id IN :oppIds
-             WITH USER_MODE]
-        );
+        // Load Opportunities and related Accounts
+        Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
+            SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c
+            FROM Opportunity
+            WHERE Id IN :oppIds
+            WITH USER_MODE
+        ]);
 
-        // Load Accounts
         Set<Id> accountIds = new Set<Id>();
         for (Opportunity o : opps.values()) {
             if (o.AccountId != null) accountIds.add(o.AccountId);
         }
 
         Map<Id, Account> accounts = accountIds.isEmpty() ? new Map<Id, Account>() :
-            new Map<Id, Account>(
-                [SELECT Id, Name, QuickBooks_Company_Id__c, QuickBooks_Customer_Id__c
-                 FROM Account
-                 WHERE Id IN :accountIds
-                 WITH USER_MODE]
-            );
+            new Map<Id, Account>([
+                SELECT Id, Name, Phone, PersonEmail__c, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
+                       QuickBooks_Company_Id__c, QuickBooks_Customer_Id__c
+                FROM Account
+                WHERE Id IN :accountIds
+                WITH USER_MODE
+            ]);
 
         // Process each input
         for (Input inRec : inputs) {
             Output outRec = new Output();
             outRec.opportunityId = (inRec != null) ? inRec.opportunityId : null;
             outRec.success = false;
+
             String defaultItem = itemOverride.containsKey(outRec.opportunityId) ? itemOverride.get(outRec.opportunityId) : '1';
 
             try {
@@ -67,7 +66,7 @@ public with sharing class QB_OpportunityInvoiceSync {
                     results.add(outRec);
                     continue;
                 }
-                if (opp.StageName != 'Paid') {
+                if (opp.StageName != QB_Enums.STAGE_PAID) {
                     outRec.message = 'Opportunity Stage is not Paid; skipping';
                     results.add(outRec);
                     continue;
@@ -84,19 +83,42 @@ public with sharing class QB_OpportunityInvoiceSync {
                     results.add(outRec);
                     continue;
                 }
-
                 if (String.isBlank(acc.QuickBooks_Company_Id__c)) {
                     outRec.message = 'Missing QuickBooks Company Id (realmId) on Account';
                     results.add(outRec);
                     continue;
                 }
 
-                // **Here we will call your QB_Service methods**
+                // Ensure Customer exists
                 String customerId = QB_Service.ensureCustomer(acc);
-                String invoiceId = QB_Service.createInvoiceFromOpportunity(opp, acc, customerId, defaultItem);
 
+                // Create Invoice using flattened QB_Models.InvoiceCreateReq
+                QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
+                QB_Models.InvoiceLine line = new QB_Models.InvoiceLine();
+                QB_Models.SalesItemLineDetail detail = new QB_Models.SalesItemLineDetail();
+                detail.ItemRef = defaultItem;
+                detail.Amount = opp.Amount;
+                line.SalesItemLineDetail = detail;
+                req.Line = new List<QB_Models.InvoiceLine>{line};
+
+                String body = JSON.serialize(req);
+                HttpResponse res = QB_HttpClient.post(acc.QuickBooks_Company_Id__c, QB_Enums.INVOICE_RESOURCE, body);
+                QB_Models.CreatedInvoiceRes parsed = (QB_Models.CreatedInvoiceRes)JSON.deserialize(res.getBody(), QB_Models.CreatedInvoiceRes.class);
+
+                if (parsed == null || parsed.Invoice == null || String.isBlank(parsed.Invoice.Id)) {
+                    outRec.message = 'Failed to parse Invoice creation response.';
+                    results.add(outRec);
+                    continue;
+                }
+
+                // Update Opportunity with QuickBooks Invoice Id
+                Opportunity upd = new Opportunity(Id = opp.Id);
+                upd.QuickBooks_Invoice_Id__c = parsed.Invoice.Id;
+                Database.update(upd, AccessLevel.USER_MODE);
+
+                // Success
                 outRec.quickBooksCustomerId = customerId;
-                outRec.quickBooksInvoiceId = invoiceId;
+                outRec.quickBooksInvoiceId = parsed.Invoice.Id;
                 outRec.success = true;
                 outRec.message = 'Invoice created';
             } catch (Exception ex) {
