@@ -25,7 +25,7 @@ public with sharing class QB_Service {
 
         String realmId = getRealmId();
         
-        // Build customer request inline instead of using non-existent Builders
+        // Build customer request inline
         QB_Models.CustomerUpsertReq req = new QB_Models.CustomerUpsertReq();
         req.DisplayName = acc.Name;
         req.PrimaryEmailAddr = acc.PersonEmail__c;
@@ -56,7 +56,6 @@ public with sharing class QB_Service {
     public static String createInvoiceFromOpportunity(Opportunity opp, Account acc, String customerId, String defaultItemRef) {
         String realmId = getRealmId();
         
-        // Build invoice request inline
         QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
         QB_Models.InvoiceLine line = new QB_Models.InvoiceLine();
         QB_Models.SalesItemLineDetail detail = new QB_Models.SalesItemLineDetail();
