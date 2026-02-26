@@ -69,9 +69,9 @@ public with sharing class QB_Service {
         // LINE 1: Determine line item label based on RecordType
         String lineItemLabel = 'Invoice';
         if (opp.RecordType != null) {
-            if (opp.RecordType.Name == 'Membership Recurring/Renewal Opportunity') {
+            if (opp.RecordType.Name == 'Membership Recurring/Renewal Opportunities') {
                 lineItemLabel = 'CLS Renewal Membership';
-            } else if (opp.RecordType.Name == 'New Membership Opportunity') {
+            } else if (opp.RecordType.Name == 'New Membership Opportunities') {
                 lineItemLabel = 'CLS New Membership';
             }
         }
@@ -84,9 +84,10 @@ public with sharing class QB_Service {
         line1.SalesItemLineDetail = detail1;
         lines.add(line1);
 
-        // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not blank
-        if (opp.Custom_Membership_Dues__c != null) {
-            Decimal discountAmount = opp.Calculated_Dues_Amount__c - opp.Custom_Membership_Dues__c;
+        // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not null
+       if (opp.Custom_Membership_Dues__c != null && opp.Calculated_Dues_Amount__c != null) {
+    Decimal calculatedDues = Decimal.valueOf(opp.Calculated_Dues_Amount__c);
+    Decimal discountAmount = calculatedDues - opp.Custom_Membership_Dues__c;
             
             QB_Models.InvoiceLine line2 = new QB_Models.InvoiceLine();
             QB_Models.SalesItemLineDetail detail2 = new QB_Models.SalesItemLineDetail();

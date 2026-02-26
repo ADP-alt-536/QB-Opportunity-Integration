@@ -23,8 +23,8 @@ private class QB_OpportunitySyncTests {
     @TestSetup
     static void setupData() {
         // Get RecordTypes
-        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunity' LIMIT 1];
-        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunity' LIMIT 1];
+        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunities' LIMIT 1];
+        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunities' LIMIT 1];
 
         // 1. Accounts
         Account a = new Account(
@@ -34,7 +34,7 @@ private class QB_OpportunitySyncTests {
             BillingCity = 'San Francisco',
             BillingState = 'CA',
             BillingPostalCode = '94105',
-            BillingCountry = 'US'
+            BillingCountry = 'United States'
         );
         insert a;
 
@@ -46,7 +46,7 @@ private class QB_OpportunitySyncTests {
             CloseDate = System.today(),
             Amount = 123.45,
             Custom_Membership_Dues__c = 50.00,
-            Calculated_Dues_Amount__c = 123.45,
+            Calculated_Dues_Amount__c = '123.45',
             AccountId = a.Id
         );
         Opportunity o2 = new Opportunity(
@@ -55,7 +55,6 @@ private class QB_OpportunitySyncTests {
             StageName = 'Prospecting',
             CloseDate = System.today(),
             Amount = 250.00,
-            // No Custom_Membership_Dues__c for single line item test
             AccountId = a.Id
         );
         insert new List<Opportunity>{o1, o2};
