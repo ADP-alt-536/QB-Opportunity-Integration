@@ -55,7 +55,6 @@ private class QB_OpportunitySyncTests {
             StageName = 'Prospecting',
             CloseDate = System.today(),
             Amount = 250.00,
-            // No Custom_Membership_Dues__c for single line item test
             AccountId = a.Id
         );
         insert new List<Opportunity>{o1, o2};

@@ -2,6 +2,8 @@
 // This class provides various services and functionality for the Application.
 public with sharing class QB_Service {
 
+public with sharing class QB_Service {
+
     // Static field for test configuration injection - must be public for test access
     @TestVisible
     public static QB_Config__mdt getTestableConfig;
@@ -84,8 +86,8 @@ public with sharing class QB_Service {
         line1.SalesItemLineDetail = detail1;
         lines.add(line1);
 
-        // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not blank
-        if (opp.Custom_Membership_Dues__c != null) {
+        // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not null
+        if (opp.Custom_Membership_Dues__c != null && opp.Calculated_Dues_Amount__c != null) {
             Decimal discountAmount = opp.Calculated_Dues_Amount__c - opp.Custom_Membership_Dues__c;
             
             QB_Models.InvoiceLine line2 = new QB_Models.InvoiceLine();
@@ -114,4 +116,5 @@ public with sharing class QB_Service {
     }
 
     public class QB_ServiceException extends Exception {}
+}
 }
