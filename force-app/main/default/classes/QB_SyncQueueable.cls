@@ -2,51 +2,42 @@
  * @description Builder helper class for QB_Models to construct complex objects
  * @author Agentforce
  */
-public with sharing class QB_Models_Builders {
-    
-    /**
-     * @description Builds a CustomerUpsertReq from an Account
-     * @param acc The Account to convert
-     * @return QB_Models.CustomerUpsertReq with populated fields
-     */
-    public static QB_Models.CustomerUpsertReq customerFrom(Account acc) {
-        QB_Models.CustomerUpsertReq req = new QB_Models.CustomerUpsertReq();
-        req.DisplayName = acc.Name;
-        req.PrimaryEmailAddr = acc.PersonEmail__c;
-        
-        QB_Models.BillingAddress addr = new QB_Models.BillingAddress();
-        addr.Line1 = acc.BillingStreet;
-        addr.City = acc.BillingCity;
-        addr.State = acc.BillingState;
-        addr.PostalCode = acc.BillingPostalCode;
-        addr.Country = acc.BillingCountry;
-        req.BillAddr = addr;
-        
-        return req;
+/**
+ * @description Queueable worker that invokes the invocable to sync Opportunities to QuickBooks.
+ * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
+ * No DML/SOQL in loops beyond batched operations.
+ */
+public with sharing class QB_SyncQueueable implements Queueable, Database.AllowsCallouts {
+
+    private final List<Id> opportunityIds;
+    private final String defaultItemRef;
+
+    public QB_SyncQueueable(List<Id> opportunityIds, String defaultItemRef) {
+        this.opportunityIds = opportunityIds == null ? new List<Id>() : new List<Id>(opportunityIds);
+        this.defaultItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
     }
 
-    /**
-     * @description Builds a single-line InvoiceCreateReq from an Opportunity
-     * @param opp The Opportunity to convert
-     * @param customerId The QuickBooks Customer ID
-     * @param defaultItemRef The default item reference (e.g., '1')
-     * @param taxCodeRef Optional tax code reference
-     * @return QB_Models.InvoiceCreateReq with a single line item
-     */
-    public static QB_Models.InvoiceCreateReq singleLineInvoiceFrom(
-        Opportunity opp, 
-        String customerId, 
-        String defaultItemRef, 
-        String taxCodeRef
-    ) {
-        QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
-        QB_Models.InvoiceLine line = new QB_Models.InvoiceLine();
-        QB_Models.SalesItemLineDetail detail = new QB_Models.SalesItemLineDetail();
-        detail.ItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
-        detail.Amount = opp.Amount;
-        line.SalesItemLineDetail = detail;
-        req.Line = new List<QB_Models.InvoiceLine>{line};
-        
-        return req;
+    public QB_SyncQueueable(List<Id> opportunityIds) {
+        this(opportunityIds, '1');
+    }
+
+    public void execute(QueueableContext qc) {
+        if (opportunityIds.isEmpty()) return;
+
+        final Integer CHUNK = 100;
+
+        for (Integer i = 0; i < opportunityIds.size(); i += CHUNK) {
+            List<Id> slice = opportunityIds.sublist(i, Math.min(i + CHUNK, opportunityIds.size()));
+            List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
+
+            for (Id oppId : slice) {
+                QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
+                inRec.opportunityId = oppId;
+                inRec.defaultItemRef = defaultItemRef;
+                inputs.add(inRec);
+            }
+
+            QB_OpportunityInvoiceSync.sync(inputs);
+        }
     }
 }
