@@ -29,9 +29,10 @@ public with sharing class QB_OpportunityInvoiceSync {
         }
         if (oppIds.isEmpty()) return results;
 
-        // Load Opportunities and related Accounts
+        // Load Opportunities and related Accounts - INCLUDES RecordType and custom fields
         Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
-            SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c
+            SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c, RecordType.Name,
+                   Custom_Membership_Dues__c, Calculated_Dues_Amount__c
             FROM Opportunity
             WHERE Id IN :oppIds
             WITH USER_MODE
@@ -91,39 +92,19 @@ public with sharing class QB_OpportunityInvoiceSync {
 
                 // Ensure Customer exists
                 String customerId = QB_Service.ensureCustomer(acc);
-
-                // Create Invoice using flattened QB_Models.InvoiceCreateReq
-                QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
-                QB_Models.InvoiceLine line = new QB_Models.InvoiceLine();
-                QB_Models.SalesItemLineDetail detail = new QB_Models.SalesItemLineDetail();
-                detail.ItemRef = defaultItem;
-                detail.Amount = opp.Amount;
-                line.SalesItemLineDetail = detail;
-                req.Line = new List<QB_Models.InvoiceLine>{line};
-
-                String body = JSON.serialize(req);
-                HttpResponse res = QB_HttpClient.post(acc.QuickBooks_Company_Id__c, QB_Enums.INVOICE_RESOURCE, body);
-                QB_Models.CreatedInvoiceRes parsed = (QB_Models.CreatedInvoiceRes)JSON.deserialize(res.getBody(), QB_Models.CreatedInvoiceRes.class);
-
-                if (parsed == null || parsed.Invoice == null || String.isBlank(parsed.Invoice.Id)) {
-                    outRec.message = 'Failed to parse Invoice creation response.';
-                    results.add(outRec);
-                    continue;
-                }
-
-                // Update Opportunity with QuickBooks Invoice Id
-                Opportunity upd = new Opportunity(Id = opp.Id);
-                upd.QuickBooks_Invoice_Id__c = parsed.Invoice.Id;
-                Database.update(upd, AccessLevel.USER_MODE);
-
-                // Success
                 outRec.quickBooksCustomerId = customerId;
-                outRec.quickBooksInvoiceId = parsed.Invoice.Id;
-                outRec.success = true;
+
+                // Create Invoice with line items based on RecordType and membership dues
+                String invoiceId = QB_Service.createInvoiceFromOpportunity(opp, acc, customerId, defaultItem);
+                outRec.quickBooksInvoiceId = invoiceId;
                 outRec.message = 'Invoice created';
-            } catch (Exception ex) {
-                outRec.message = 'Error: ' + ex.getMessage();
+                outRec.success = true;
+
+            } catch (Exception e) {
+                outRec.message = 'Error: ' + e.getMessage();
+                outRec.success = false;
             }
+
             results.add(outRec);
         }
 

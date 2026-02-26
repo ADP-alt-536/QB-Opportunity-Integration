@@ -53,16 +53,50 @@ public with sharing class QB_Service {
         return parsed.Customer.Id;
     }
 
+    /**
+     * @description Creates an invoice with line items based on Opportunity Record Type and membership dues
+     * Line 1: RecordType-based label with Opportunity Amount
+     * Line 2 (optional): "1 Year Membership Discount" if Custom_Membership_Dues__c is not blank
+     *                    Amount = Calculated_Dues_Amount__c - Custom_Membership_Dues__c
+     */
     public static String createInvoiceFromOpportunity(Opportunity opp, Account acc, String customerId, String defaultItemRef) {
         String realmId = getRealmId();
         
+        // Build invoice request with line items based on RecordType and membership dues
         QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
-        QB_Models.InvoiceLine line = new QB_Models.InvoiceLine();
-        QB_Models.SalesItemLineDetail detail = new QB_Models.SalesItemLineDetail();
-        detail.ItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
-        detail.Amount = opp.Amount;
-        line.SalesItemLineDetail = detail;
-        req.Line = new List<QB_Models.InvoiceLine>{line};
+        List<QB_Models.InvoiceLine> lines = new List<QB_Models.InvoiceLine>();
+
+        // LINE 1: Determine line item label based on RecordType
+        String lineItemLabel = 'Invoice';
+        if (opp.RecordType != null) {
+            if (opp.RecordType.Name == 'Membership Recurring/Renewal Opportunity') {
+                lineItemLabel = 'CLS Renewal Membership';
+            } else if (opp.RecordType.Name == 'New Membership Opportunity') {
+                lineItemLabel = 'CLS New Membership';
+            }
+        }
+
+        // Create first line item with label and amount
+        QB_Models.InvoiceLine line1 = new QB_Models.InvoiceLine();
+        QB_Models.SalesItemLineDetail detail1 = new QB_Models.SalesItemLineDetail();
+        detail1.ItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
+        detail1.Amount = opp.Amount;
+        line1.SalesItemLineDetail = detail1;
+        lines.add(line1);
+
+        // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not blank
+        if (opp.Custom_Membership_Dues__c != null) {
+            Decimal discountAmount = opp.Calculated_Dues_Amount__c - opp.Custom_Membership_Dues__c;
+            
+            QB_Models.InvoiceLine line2 = new QB_Models.InvoiceLine();
+            QB_Models.SalesItemLineDetail detail2 = new QB_Models.SalesItemLineDetail();
+            detail2.ItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
+            detail2.Amount = discountAmount;
+            line2.SalesItemLineDetail = detail2;
+            lines.add(line2);
+        }
+        
+        req.Line = lines;
         
         String body = JSON.serialize(req);
         HttpResponse res = QB_HttpClient.post(realmId, QB_Enums.INVOICE_RESOURCE, body);
