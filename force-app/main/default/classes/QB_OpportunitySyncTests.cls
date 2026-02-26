@@ -58,6 +58,9 @@ private class QB_OpportunitySyncTests {
             StageName = 'Prospecting',
             CloseDate = System.today(),
             Amount = 250.00,
+            Efffective_Date__c = System.today(),
+            Paid_Date__c = System.today(),
+            Amount_Paid__c = 250.00,
             AccountId = a.Id
         );
         insert new List<Opportunity>{o1, o2};
