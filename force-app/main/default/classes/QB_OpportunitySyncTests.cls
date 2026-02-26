@@ -54,14 +54,52 @@ private class QB_OpportunitySyncTests {
 
     // Helper method to simulate CMDT record in test context
     @TestVisible
-    static QB_Config__mdt createTestConfig() {
-        QB_Config__mdt cfg = new QB_Config__mdt(
-            MasterLabel = 'Org Defaults',
-            Realm_Id__c = '123456789',
-            Default_Item_Ref__c = '1'
-        );
-        return cfg;
+public static QB_Config__mdt getTestableConfig;
+
+// ...existing code...
+
+// Ensure loadConfig or equivalent uses the testable config:
+private static QB_Config__mdt loadConfig() {
+    if (Test.isRunningTest() && getTestableConfig != null) {
+        return getTestableConfig;
     }
+    return [SELECT Realm_Id__c, Default_Item_Ref__c FROM QB_Config__mdt WHERE MasterLabel = 'Org Defaults' LIMIT 1];
+}
+
+// Ensure ensureCustomer accepts an Account parameter (not just an Id):
+public static String ensureCustomer(Account acct) {
+    // If account already has a QuickBooks Customer Id, return it
+    if (String.isNotBlank(acct.QuickBooks_Customer_Id__c)) {
+        return acct.QuickBooks_Customer_Id__c;
+    }
+
+    QB_Config__mdt cfg = loadConfig();
+
+    // Build the request to create a customer in QuickBooks
+    HttpRequest req = new HttpRequest();
+    req.setEndpoint('callout:QuickBooks/v3/company/' + cfg.Realm_Id__c + '/customer');
+    req.setMethod('POST');
+    req.setHeader('Content-Type', 'application/json');
+    req.setHeader('Accept', 'application/json');
+
+    Map<String, Object> body = new Map<String, Object>{
+        'DisplayName' => acct.Name
+    };
+    req.setBody(JSON.serialize(body));
+
+    Http http = new Http();
+    HttpResponse res = http.send(req);
+
+    Map<String, Object> parsed = (Map<String, Object>) JSON.deserializeUntyped(res.getBody());
+    Map<String, Object> customer = (Map<String, Object>) parsed.get('Customer');
+    String custId = (String) customer.get('Id');
+
+    // Write back to Account
+    acct.QuickBooks_Customer_Id__c = custId;
+    update acct;
+
+    return custId;
+}
 
     @IsTest
     static void testInvocableHappyPath() {
