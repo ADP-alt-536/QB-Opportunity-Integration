@@ -1,14 +1,5 @@
-/**
- * @description Builder helper class for QB_Models to construct complex objects
- * @author Agentforce
- */
 public with sharing class QB_Models_Builders {
     
-    /**
-     * @description Builds a CustomerUpsertReq from an Account
-     * @param acc The Account to convert
-     * @return QB_Models.CustomerUpsertReq with populated fields
-     */
     public static QB_Models.CustomerUpsertReq customerFrom(Account acc) {
         QB_Models.CustomerUpsertReq req = new QB_Models.CustomerUpsertReq();
         req.DisplayName = acc.Name;
@@ -25,14 +16,6 @@ public with sharing class QB_Models_Builders {
         return req;
     }
 
-    /**
-     * @description Builds a single-line InvoiceCreateReq from an Opportunity
-     * @param opp The Opportunity to convert
-     * @param customerId The QuickBooks Customer ID
-     * @param defaultItemRef The default item reference (e.g., '1')
-     * @param taxCodeRef Optional tax code reference
-     * @return QB_Models.InvoiceCreateReq with a single line item
-     */
     public static QB_Models.InvoiceCreateReq singleLineInvoiceFrom(
         Opportunity opp, 
         String customerId, 
