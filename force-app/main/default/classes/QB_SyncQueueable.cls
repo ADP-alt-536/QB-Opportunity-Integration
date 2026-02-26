@@ -12,6 +12,11 @@
  * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
  * No DML/SOQL in loops beyond batched operations.
  */
+/**
+ * @description Queueable worker that invokes the invocable to sync Opportunities to QuickBooks.
+ * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
+ * No DML/SOQL in loops beyond batched operations.
+ */
 public with sharing class QB_SyncQueueable implements Queueable, Database.AllowsCallouts {
 
     private final List<Id> opportunityIds;
@@ -34,7 +39,13 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
 
         for (Integer i = 0; i < totalSize; i += CHUNK) {
             Integer endIndex = Math.min(i + CHUNK, totalSize);
-            List<Id> slice = opportunityIds.sublist(i, endIndex);
+            
+            // Create slice manually instead of using subList
+            List<Id> slice = new List<Id>();
+            for (Integer j = i; j < endIndex; j++) {
+                slice.add(opportunityIds.get(j));
+            }
+            
             List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
 
             for (Id oppId : slice) {
