@@ -2,8 +2,6 @@
 // This class provides various services and functionality for the Application.
 public with sharing class QB_Service {
 
-public with sharing class QB_Service {
-
     // Static field for test configuration injection - must be public for test access
     @TestVisible
     public static QB_Config__mdt getTestableConfig;
@@ -116,5 +114,4 @@ public with sharing class QB_Service {
     }
 
     public class QB_ServiceException extends Exception {}
-}
 }
