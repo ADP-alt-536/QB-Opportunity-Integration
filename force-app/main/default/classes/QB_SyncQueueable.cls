@@ -23,7 +23,7 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
         final Integer CHUNK = 100;
 
         for (Integer i = 0; i < opportunityIds.size(); i += CHUNK) {
-            List<Id> slice = opportunityIds.subList(i, Math.min(i + CHUNK, opportunityIds.size()));
+           List<Id> slice = opportunityIds.sublist(i, Math.min(i + CHUNK, opportunityIds.size()));
             List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
 
             for (Id oppId : slice) {

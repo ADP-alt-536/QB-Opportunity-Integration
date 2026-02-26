@@ -1,7 +1,7 @@
 // QB_Service.cls
 // This class provides various services and functionality for the Application.
 
-public with sharing class QB_Service {
+public static QB_Config__mdt getTestableConfig;
 
     @TestVisible static String testConfig;
 
