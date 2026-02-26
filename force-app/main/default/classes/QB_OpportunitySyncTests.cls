@@ -32,7 +32,7 @@ private class QB_OpportunitySyncTests {
             Phone = '555-111-2222',
             BillingStreet = '1 Main',
             BillingCity = 'San Francisco',
-            BillingState = 'CA',
+            BillingState = 'California',
             BillingPostalCode = '94105',
             BillingCountry = 'United States'
         );
@@ -46,7 +46,10 @@ private class QB_OpportunitySyncTests {
             CloseDate = System.today(),
             Amount = 123.45,
             Custom_Membership_Dues__c = 50.00,
-            Calculated_Dues_Amount__c = '123.45',
+            Calculated_Dues_Amount__c = 123.45,
+            Effective_Date__c = System.today(),
+            Paid_Date__c = System.today(),
+            Amount_Paid__c = 123.45,
             AccountId = a.Id
         );
         Opportunity o2 = new Opportunity(
