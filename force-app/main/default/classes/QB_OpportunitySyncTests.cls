@@ -46,7 +46,7 @@ private class QB_OpportunitySyncTests {
             CloseDate = System.today(),
             Amount = 123.45,
             Custom_Membership_Dues__c = 50.00,
-            Calculated_Dues_Amount__c = 123.45,
+            Calculated_Dues_Amount__c = '123.45',
             AccountId = a.Id
         );
         Opportunity o2 = new Opportunity(
