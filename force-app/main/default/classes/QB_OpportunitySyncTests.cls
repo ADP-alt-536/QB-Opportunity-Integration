@@ -23,8 +23,8 @@ private class QB_OpportunitySyncTests {
     @TestSetup
     static void setupData() {
         // Get RecordTypes
-        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunity' LIMIT 1];
-        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunity' LIMIT 1];
+        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunities' LIMIT 1];
+        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunities' LIMIT 1];
 
         // 1. Accounts
         Account a = new Account(

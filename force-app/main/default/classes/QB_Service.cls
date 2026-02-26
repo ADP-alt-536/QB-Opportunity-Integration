@@ -69,9 +69,9 @@ public with sharing class QB_Service {
         // LINE 1: Determine line item label based on RecordType
         String lineItemLabel = 'Invoice';
         if (opp.RecordType != null) {
-            if (opp.RecordType.Name == 'Membership Recurring/Renewal Opportunity') {
+            if (opp.RecordType.Name == 'Membership Recurring/Renewal Opportunities') {
                 lineItemLabel = 'CLS Renewal Membership';
-            } else if (opp.RecordType.Name == 'New Membership Opportunity') {
+            } else if (opp.RecordType.Name == 'New Membership Opportunities') {
                 lineItemLabel = 'CLS New Membership';
             }
         }
