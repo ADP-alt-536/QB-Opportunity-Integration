@@ -34,7 +34,7 @@ private class QB_OpportunitySyncTests {
             BillingCity = 'San Francisco',
             BillingState = 'CA',
             BillingPostalCode = '94105',
-            BillingCountry = 'US'
+            BillingCountry = 'United States'
         );
         insert a;
 

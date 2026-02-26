@@ -85,8 +85,9 @@ public with sharing class QB_Service {
         lines.add(line1);
 
         // LINE 2 (OPTIONAL): Add discount line item if Custom_Membership_Dues__c is not null
-        if (opp.Custom_Membership_Dues__c != null && opp.Calculated_Dues_Amount__c != null) {
-            Decimal discountAmount = opp.Calculated_Dues_Amount__c - opp.Custom_Membership_Dues__c;
+       if (opp.Custom_Membership_Dues__c != null && opp.Calculated_Dues_Amount__c != null) {
+    Decimal calculatedDues = Decimal.valueOf(opp.Calculated_Dues_Amount__c);
+    Decimal discountAmount = calculatedDues - opp.Custom_Membership_Dues__c;
             
             QB_Models.InvoiceLine line2 = new QB_Models.InvoiceLine();
             QB_Models.SalesItemLineDetail detail2 = new QB_Models.SalesItemLineDetail();
