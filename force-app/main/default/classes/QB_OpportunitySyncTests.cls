@@ -195,6 +195,7 @@ private class QB_OpportunitySyncTests {
         System.assertNotEquals(QB_Enums.STAGE_PAID, o.StageName, 'Precondition: Opp should not already be Paid in @TestSetup');
 
         o.StageName = QB_Enums.STAGE_PAID;
+        o.Amount = 250.00; // important if invoice creation uses Opportunity.Amount
         o.Effective_Date__c = System.today();
         o.Paid_Date__c = System.today();
         o.Amount_Paid__c = 250.00;
