@@ -22,9 +22,19 @@ private class QB_OpportunitySyncTests {
     // Create test data for Opportunities and Accounts
     @TestSetup
     static void setupData() {
-        // Get RecordTypes
-        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunities' LIMIT 1];
-        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunities' LIMIT 1];
+        // Get RecordTypes - use try/catch to handle missing record types gracefully
+        RecordType renewalRT;
+        RecordType newMemberRT;
+        try {
+            renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunities' LIMIT 1];
+        } catch (QueryException e) {
+            // Record type not found, will use null or default
+        }
+        try {
+            newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunities' LIMIT 1];
+        } catch (QueryException e) {
+            // Record type not found, will use null or default
+        }
 
         // 1. Accounts
         Account a = new Account(
@@ -96,13 +106,11 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
 
     @IsTest
     static void testInvocableWithTwoLineItems() {
-        Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
 
-        // Inject test CMDT record
-        QB_Service.getTestableConfig = createTestConfig();
+        Test.startTest();
 
-        Opportunity o = [SELECT Id, Name, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c FROM Opportunity WHERE Name = 'Opp Renewal' LIMIT 1];
+        Opportunity o = [SELECT Id, Name, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c, AccountId FROM Opportunity WHERE Name = 'Opp Renewal' LIMIT 1];
         o.StageName = 'Paid';
         o.Effective_Date__c = System.today();
         o.Paid_Date__c = System.today();
@@ -127,14 +135,12 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
 
     @IsTest
     static void testInvocableWithSingleLineItem() {
-        Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
 
-        // Inject test CMDT record
-        QB_Service.getTestableConfig = createTestConfig();
+        Test.startTest();
 
         Opportunity o = [SELECT Id, StageName, Effective_Date__c,
-        Paid_Date__c FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
+        Paid_Date__c, Amount_Paid__c, AccountId FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
         o.StageName = 'Paid';
         o.Effective_Date__c = System.today();
         o.Paid_Date__c = System.today();
@@ -159,12 +165,12 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
 
     @IsTest
     static void testTriggerQueuesQueueable() {
-        Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
+
+        Test.startTest();
 
         Opportunity o = [SELECT Id, StageName, Effective_Date__c,
-        Paid_Date__c
+        Paid_Date__c, Amount_Paid__c, AccountId
         FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
         o.StageName = 'Paid';
         o.Effective_Date__c = System.today();
@@ -186,7 +192,6 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
 
         Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
 
         String custId = QB_Service.ensureCustomer(a);
         Test.stopTest();
