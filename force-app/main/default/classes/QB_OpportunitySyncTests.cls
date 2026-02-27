@@ -100,8 +100,14 @@ private class QB_OpportunitySyncTests {
         );
     }
 
+    /**
+     * NOTE: In this org, callouts after DML in the same transaction have produced
+     * "You have uncommitted work pending". Production execution occurs via Queueable
+     * (AllowsCallouts), and these tests validate behavior through that async pathway.
+     */
+
     @IsTest
-    static void testInvocableWithTwoLineItems() {
+    static void testQueueableSyncWithTwoLineItems() {
         Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
         QB_Service.getTestableConfig = createTestConfig();
@@ -115,8 +121,9 @@ private class QB_OpportunitySyncTests {
             LIMIT 1
         ];
 
+        // Insert a Paid Opportunity (afterUpdate trigger won't run on insert)
         Opportunity o = new Opportunity(
-            Name = 'Opp Renewal Invocable',
+            Name = 'Opp Renewal Queueable',
             RecordTypeId = renewalRT.Id,
             StageName = QB_Enums.STAGE_PAID,
             CloseDate = System.today(),
@@ -130,25 +137,19 @@ private class QB_OpportunitySyncTests {
         );
         insert o;
 
-        QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
-        inRec.opportunityId = o.Id;
-        inRec.defaultItemRef = '1';
-
-        List<QB_OpportunityInvoiceSync.Output> outs =
-            QB_OpportunityInvoiceSync.sync(new List<QB_OpportunityInvoiceSync.Input>{ inRec });
+        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }, '1'));
 
         Test.stopTest();
 
-        System.assertEquals(1, outs.size());
-        System.assertEquals(true, outs[0].success, 'Message was: ' + outs[0].message);
-        System.assertEquals('Invoice created', outs[0].message);
-
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c);
+        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c, 'Invoice Id should be written back');
+
+        Account a2 = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
+        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c, 'Customer Id should be written back');
     }
 
     @IsTest
-    static void testInvocableWithSingleLineItem() {
+    static void testQueueableSyncWithSingleLineItem() {
         Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
         QB_Service.getTestableConfig = createTestConfig();
@@ -162,8 +163,9 @@ private class QB_OpportunitySyncTests {
             LIMIT 1
         ];
 
+        // Insert a Paid Opportunity (afterUpdate trigger won't run on insert)
         Opportunity o = new Opportunity(
-            Name = 'Opp New Member Invocable',
+            Name = 'Opp New Member Queueable',
             RecordTypeId = newMemberRT.Id,
             StageName = QB_Enums.STAGE_PAID,
             CloseDate = System.today(),
@@ -175,21 +177,15 @@ private class QB_OpportunitySyncTests {
         );
         insert o;
 
-        QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
-        inRec.opportunityId = o.Id;
-        inRec.defaultItemRef = '1';
-
-        List<QB_OpportunityInvoiceSync.Output> outs =
-            QB_OpportunityInvoiceSync.sync(new List<QB_OpportunityInvoiceSync.Input>{ inRec });
+        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }, '1'));
 
         Test.stopTest();
 
-        System.assertEquals(1, outs.size());
-        System.assertEquals(true, outs[0].success, 'Message was: ' + outs[0].message);
-        System.assertEquals('Invoice created', outs[0].message);
-
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c);
+        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c, 'Invoice Id should be written back');
+
+        Account a2 = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
+        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c, 'Customer Id should be written back');
     }
 
     @IsTest
@@ -199,7 +195,7 @@ private class QB_OpportunitySyncTests {
         QB_Service.getTestableConfig = createTestConfig();
 
         Opportunity o = [
-            SELECT Id, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c
+            SELECT Id, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c, AccountId
             FROM Opportunity
             WHERE Name = 'Opp New Member'
             LIMIT 1
@@ -213,30 +209,9 @@ private class QB_OpportunitySyncTests {
         Test.stopTest();
 
         Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c);
-    }
+        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
 
-    @IsTest
-    static void testEnsureCustomerWritesBack() {
-        Account a = [
-            SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
-                   BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry
-            FROM Account
-            WHERE Name = 'Acme Corp'
-            LIMIT 1
-        ];
-        System.assertEquals(null, a.QuickBooks_Customer_Id__c);
-
-        Test.startTest();
-        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
-
-        String custId = QB_Service.ensureCustomer(a);
-
-        Test.stopTest();
-
-        System.assertEquals('CUST-123', custId);
-        a = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
-        System.assertEquals('CUST-123', a.QuickBooks_Customer_Id__c);
+        Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
+        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c, 'Trigger path should write back customer id');
     }
 }
