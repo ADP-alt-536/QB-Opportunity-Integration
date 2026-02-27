@@ -180,7 +180,8 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
 
     @IsTest
     static void testEnsureCustomerWritesBack() {
-        Account a = [SELECT Id, Name, QuickBooks_Customer_Id__c FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
+        Account a = [SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
+           BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
         System.assertEquals(null, a.QuickBooks_Customer_Id__c, 'Precondition: no customer id before test');
 
         Test.startTest();

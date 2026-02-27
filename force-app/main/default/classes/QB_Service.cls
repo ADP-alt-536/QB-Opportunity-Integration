@@ -28,7 +28,8 @@ public with sharing class QB_Service {
         // Build customer request inline
         QB_Models.CustomerUpsertReq req = new QB_Models.CustomerUpsertReq();
         req.DisplayName = acc.Name;
-        req.PrimaryEmailAddr = acc.Primary_Contact_Email__c;
+        // use lookup relationship directly (Contact.Email)
+    req.PrimaryEmailAddr = (acc.Primary_Contact__r != null) ? acc.Primary_Contact__r.Email : null;
         
         QB_Models.BillingAddress addr = new QB_Models.BillingAddress();
         addr.Line1 = acc.BillingStreet;
