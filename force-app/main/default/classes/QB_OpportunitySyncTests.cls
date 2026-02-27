@@ -34,7 +34,9 @@ private class QB_OpportunitySyncTests {
             BillingCity = 'San Francisco',
             BillingState = 'California',
             BillingPostalCode = '94105',
-            BillingCountry = 'United States'
+            BillingCountry = 'United States',
+            Primary_Contact_Email__c = 'test@noemail.com',
+            QuickBooks_Company_Id__c = '123456789'
         );
         insert a;
 
