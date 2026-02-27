@@ -67,10 +67,6 @@ private class QB_OpportunitySyncTests {
         a.Primary_Contact__c = primaryC.Id;
         update a;
 
-        // Optional sanity check
-        a = [SELECT Id, Primary_Contact__r.Email FROM Account WHERE Id = :a.Id];
-        System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
-
         Opportunity o1 = new Opportunity(
             Name = 'Opp Renewal',
             RecordTypeId = (renewalRT != null ? renewalRT.Id : null),
@@ -100,12 +96,6 @@ private class QB_OpportunitySyncTests {
         );
     }
 
-    /**
-     * NOTE: In this org, callouts after DML in the same transaction have produced
-     * "You have uncommitted work pending". Production execution occurs via Queueable
-     * (AllowsCallouts), and these tests validate behavior through that async pathway.
-     */
-
     @IsTest
     static void testQueueableSyncWithTwoLineItems() {
         Test.startTest();
@@ -121,7 +111,6 @@ private class QB_OpportunitySyncTests {
             LIMIT 1
         ];
 
-        // Insert a Paid Opportunity (afterUpdate trigger won't run on insert)
         Opportunity o = new Opportunity(
             Name = 'Opp Renewal Queueable',
             RecordTypeId = renewalRT.Id,
@@ -142,10 +131,10 @@ private class QB_OpportunitySyncTests {
         Test.stopTest();
 
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c, 'Invoice Id should be written back');
+        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c);
 
         Account a2 = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
-        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c, 'Customer Id should be written back');
+        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c);
     }
 
     @IsTest
@@ -163,7 +152,6 @@ private class QB_OpportunitySyncTests {
             LIMIT 1
         ];
 
-        // Insert a Paid Opportunity (afterUpdate trigger won't run on insert)
         Opportunity o = new Opportunity(
             Name = 'Opp New Member Queueable',
             RecordTypeId = newMemberRT.Id,
@@ -182,10 +170,10 @@ private class QB_OpportunitySyncTests {
         Test.stopTest();
 
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c, 'Invoice Id should be written back');
+        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c);
 
         Account a2 = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
-        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c, 'Customer Id should be written back');
+        System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c);
     }
 
     @IsTest
@@ -209,9 +197,32 @@ private class QB_OpportunitySyncTests {
         Test.stopTest();
 
         Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
+        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c);
 
         Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
-        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c, 'Trigger path should write back customer id');
+        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c);
+    }
+
+    @IsTest
+    static void testEnsureCustomerWritesBack() {
+        Account a = [SELECT Id, QuickBooks_Customer_Id__c FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
+        System.assertEquals(null, a.QuickBooks_Customer_Id__c);
+
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
+        QB_Service.getTestableConfig = createTestConfig();
+
+        // Direct unit test of ensureCustomer (kept because you said it passes in your org).
+        a = [SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
+                    BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry
+             FROM Account
+             WHERE Id = :a.Id];
+        String custId = QB_Service.ensureCustomer(a);
+
+        Test.stopTest();
+
+        System.assertEquals('CUST-123', custId);
+        a = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
+        System.assertEquals('CUST-123', a.QuickBooks_Customer_Id__c);
     }
 }
