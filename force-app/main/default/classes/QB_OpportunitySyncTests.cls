@@ -116,11 +116,15 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
         o.Paid_Date__c = System.today();
         o.Amount_Paid__c = 123.45;
         update o;
+        
+        Test.stopTest();
 
         // Call invocable directly
         QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
         inRec.opportunityId = o.Id;
         inRec.defaultItemRef = '1';
+        
+        Test.startTest();
         List<QB_OpportunityInvoiceSync.Output> outs = QB_OpportunityInvoiceSync.sync(new List<QB_OpportunityInvoiceSync.Input>{inRec});
 
         Test.stopTest();
@@ -147,11 +151,15 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
         o.Paid_Date__c = System.today();
         o.Amount_Paid__c = 250.00;
         update o;
+        
+        Test.stopTest();
 
         // Call invocable directly
         QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
         inRec.opportunityId = o.Id;
         inRec.defaultItemRef = '1';
+        
+        Test.startTest();
         List<QB_OpportunityInvoiceSync.Output> outs = QB_OpportunityInvoiceSync.sync(new List<QB_OpportunityInvoiceSync.Input>{inRec});
 
         Test.stopTest();
