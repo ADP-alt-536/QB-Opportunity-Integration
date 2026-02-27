@@ -44,7 +44,7 @@ public with sharing class QB_OpportunityInvoiceSync {
 
         Map<Id, Account> accounts = accountIds.isEmpty() ? new Map<Id, Account>() :
             new Map<Id, Account>([
-                SELECT Id, Name, Phone, PersonEmail__c, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
+                SELECT Id, Name, Phone, Primary_Contact_Email__c, BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry,
                        QuickBooks_Company_Id__c, QuickBooks_Customer_Id__c
                 FROM Account
                 WHERE Id IN :accountIds
