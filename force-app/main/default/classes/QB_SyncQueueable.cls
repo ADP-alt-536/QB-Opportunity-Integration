@@ -23,7 +23,9 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
     private final String defaultItemRef;
 
     public QB_SyncQueueable(List<Id> opportunityIds, String defaultItemRef) {
-        this.opportunityIds = opportunityIds == null ? new List<Id>() : new List<Id>(opportunityIds);
+        this.opportunityIds = (opportunityIds == null)
+            ? new List<Id>()
+            : new List<Id>(opportunityIds);
         this.defaultItemRef = String.isBlank(defaultItemRef) ? '1' : defaultItemRef;
     }
 
@@ -39,15 +41,15 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
 
         for (Integer i = 0; i < totalSize; i += CHUNK) {
             Integer endIndex = Math.min(i + CHUNK, totalSize);
-            
-            // Create slice manually instead of using subList
+
+            // Manual slice (avoid List.subList quirks)
             List<Id> slice = new List<Id>();
             for (Integer j = i; j < endIndex; j++) {
                 slice.add(opportunityIds.get(j));
             }
-            
-            List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
 
+            // Build inputs for this chunk (preserve defaultItemRef)
+            List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
             for (Id oppId : slice) {
                 QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
                 inRec.opportunityId = oppId;
@@ -55,7 +57,11 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
                 inputs.add(inRec);
             }
 
-            QB_OpportunityInvoiceSync.sync(inputs);
+            // Phase 1: callouts only (NO DML)
+            QB_OpportunityInvoiceSync.SyncPlan plan = QB_OpportunityInvoiceSync.performCallouts(inputs);
+
+            // Phase 2: DML only (NO callouts)
+            QB_OpportunityInvoiceSync.applyWritebacks(plan);
         }
     }
 }
