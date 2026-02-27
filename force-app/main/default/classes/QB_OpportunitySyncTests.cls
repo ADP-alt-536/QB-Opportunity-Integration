@@ -46,10 +46,7 @@ private class QB_OpportunitySyncTests {
             CloseDate = System.today(),
             Amount = 123.45,
             Custom_Membership_Dues__c = 50.00,
-            Calculated_Dues_Amount__c = 123.45,
-            Effective_Date__c = System.today(),
-            Paid_Date__c = System.today(),
-            Amount_Paid__c = 123.45,
+            Calculated_Dues_Amount__c = '123.45',
             AccountId = a.Id
         );
         Opportunity o2 = new Opportunity(
@@ -58,9 +55,6 @@ private class QB_OpportunitySyncTests {
             StageName = 'Prospecting',
             CloseDate = System.today(),
             Amount = 250.00,
-            Efffective_Date__c = System.today(),
-            Paid_Date__c = System.today(),
-            Amount_Paid__c = 250.00,
             AccountId = a.Id
         );
         insert new List<Opportunity>{o1, o2};
@@ -84,8 +78,11 @@ private class QB_OpportunitySyncTests {
         // Inject test CMDT record
         QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [SELECT Id, Name, StageName FROM Opportunity WHERE Name = 'Opp Renewal' LIMIT 1];
+        Opportunity o = [SELECT Id, Name, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c FROM Opportunity WHERE Name = 'Opp Renewal' LIMIT 1];
         o.StageName = 'Paid';
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();
+        o.Amount_Paid__c = 123.45;
         update o;
 
         // Call invocable directly
@@ -112,8 +109,12 @@ private class QB_OpportunitySyncTests {
         // Inject test CMDT record
         QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [SELECT Id, StageName FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
+        Opportunity o = [SELECT Id, StageName, Effective_Date__c,
+        Paid_Date__c FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
         o.StageName = 'Paid';
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();
+        o.Amount_Paid__c = 250.00;
         update o;
 
         // Call invocable directly
@@ -138,9 +139,14 @@ private class QB_OpportunitySyncTests {
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
         QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [SELECT Id, StageName FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
+        Opportunity o = [SELECT Id, StageName, Effective_Date__c,
+        Paid_Date__c
+        FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
         o.StageName = 'Paid';
-        update o;
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();    
+        o.Amount_Paid__c = 250.00;
+         update o;
 
         Test.stopTest();
 
