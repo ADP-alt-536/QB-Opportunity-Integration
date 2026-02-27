@@ -126,7 +126,8 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
         Test.stopTest();
 
         System.assertEquals(1, outs.size(), 'Should return one result');
-        System.assertEquals(true, outs[0].success, 'Expect success');
+        System.assertEquals(true, outs[0].success, 'Expect success. Message was: ' + outs[0].message);
+        System.debug('Message: ' + outs[0].message);
         System.assertEquals('Invoice created', outs[0].message, 'Should report invoice created');
 
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
@@ -156,7 +157,8 @@ System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
         Test.stopTest();
 
         System.assertEquals(1, outs.size(), 'Should return one result');
-        System.assertEquals(true, outs[0].success, 'Expect success');
+        System.assertEquals(true, outs[0].success, 'Expect success Message was: ' + outs[0].message);
+        System.debug('Message: ' + outs[0].message);
         System.assertEquals('Invoice created', outs[0].message, 'Should report invoice created with single line item');
 
         Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
