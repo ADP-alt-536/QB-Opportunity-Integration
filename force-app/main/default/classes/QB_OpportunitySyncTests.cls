@@ -126,7 +126,8 @@ private class QB_OpportunitySyncTests {
         );
         insert o;
 
-        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }, '1'));
+        // Match the trigger’s constructor signature
+        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }));
 
         Test.stopTest();
 
@@ -165,7 +166,8 @@ private class QB_OpportunitySyncTests {
         );
         insert o;
 
-        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }, '1'));
+        // Match the trigger’s constructor signature
+        System.enqueueJob(new QB_SyncQueueable(new List<Id>{ o.Id }));
 
         Test.stopTest();
 
@@ -188,19 +190,27 @@ private class QB_OpportunitySyncTests {
             WHERE Name = 'Opp New Member'
             LIMIT 1
         ];
+
+        // Prove we are actually transitioning into Paid
+        System.assertNotEquals(QB_Enums.STAGE_PAID, o.StageName, 'Precondition: Opp should not already be Paid in @TestSetup');
+
         o.StageName = QB_Enums.STAGE_PAID;
         o.Effective_Date__c = System.today();
         o.Paid_Date__c = System.today();
         o.Amount_Paid__c = 250.00;
         update o;
 
+        // Verify stage update actually stuck before we stopTest/flush async
+        Opportunity afterUpdate = [SELECT StageName FROM Opportunity WHERE Id = :o.Id];
+        System.assertEquals(QB_Enums.STAGE_PAID, afterUpdate.StageName, 'StageName should be Paid after update');
+
         Test.stopTest();
 
         Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c);
+        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
 
         Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
-        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c);
+        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c, 'Trigger path should write back customer id');
     }
 
     @IsTest
@@ -212,11 +222,12 @@ private class QB_OpportunitySyncTests {
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
         QB_Service.getTestableConfig = createTestConfig();
 
-        // Direct unit test of ensureCustomer (kept because you said it passes in your org).
-        a = [SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
-                    BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry
-             FROM Account
-             WHERE Id = :a.Id];
+        a = [
+            SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
+                   BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry
+            FROM Account
+            WHERE Id = :a.Id
+        ];
         String custId = QB_Service.ensureCustomer(a);
 
         Test.stopTest();
