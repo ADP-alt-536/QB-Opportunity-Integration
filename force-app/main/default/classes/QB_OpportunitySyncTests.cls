@@ -35,10 +35,32 @@ private class QB_OpportunitySyncTests {
             BillingState = 'California',
             BillingPostalCode = '94105',
             BillingCountry = 'United States',
-            Primary_Contact_Email__c = 'test@noemail.com',
             QuickBooks_Company_Id__c = '123456789'
         );
         insert a;
+        // 1a) Contact with Email
+        Contact primaryC = new Contact(
+            FirstName = 'Alex',
+            LastName  = 'Primary',
+            AccountId = a.Id,
+            Email     = 'primary@example.com'
+        );  
+
+insert primaryC;
+
+    // 1b) Set the lookup field that corresponds to Primary_Contact__r
+    // This is almost certainly Primary_Contact__c (relationship name Primary_Contact__r).
+    a.Primary_Contact__c = primaryC.Id;
+    update a;
+
+    // 1c) If you need to assert/use the formula, re-query it
+    a = [
+    SELECT Id, Primary_Contact__r.Email
+    FROM Account
+    WHERE Id = :a.Id
+];
+System.assertEquals('primary@example.com', a.Primary_Contact__r.Email);
+
 
         // 2. Opportunities with RecordTypes
         Opportunity o1 = new Opportunity(
