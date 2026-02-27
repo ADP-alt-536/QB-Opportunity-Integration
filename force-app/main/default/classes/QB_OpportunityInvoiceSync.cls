@@ -156,9 +156,13 @@ public with sharing class QB_OpportunityInvoiceSync {
                 outRec.success = true;
 
             } catch (Exception e) {
-                outRec.message = 'Error: ' + e.getMessage();
-                outRec.success = false;
-            }
+            System.debug(LoggingLevel.ERROR, e);
+            if (Test.isRunningTest()) {
+            throw e;
+    }
+    outRec.message = 'Error: ' + e.getMessage();
+    outRec.success = false;
+}
 
             plan.results.add(outRec);
         }
