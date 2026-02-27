@@ -1,4 +1,18 @@
 /**
+ * @description Builder helper class for QB_Models to construct complex objects
+ * @author Agentforce
+ */
+/**
+ * @description Queueable worker that invokes the invocable to sync Opportunities to QuickBooks.
+ * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
+ * No DML/SOQL in loops beyond batched operations.
+ */
+/**
+ * @description Queueable worker that invokes the invocable to sync Opportunities to QuickBooks.
+ * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
+ * No DML/SOQL in loops beyond batched operations.
+ */
+/**
  * @description Queueable worker that invokes the invocable to sync Opportunities to QuickBooks.
  * Accepts a list of Opportunity Ids. Splits into chunks if needed. Safe for async callouts.
  * No DML/SOQL in loops beyond batched operations.
@@ -21,9 +35,17 @@ public with sharing class QB_SyncQueueable implements Queueable, Database.Allows
         if (opportunityIds.isEmpty()) return;
 
         final Integer CHUNK = 100;
+        final Integer totalSize = opportunityIds.size();
 
-        for (Integer i = 0; i < opportunityIds.size(); i += CHUNK) {
-            List<Id> slice = opportunityIds.subList(i, Math.min(i + CHUNK, opportunityIds.size()));
+        for (Integer i = 0; i < totalSize; i += CHUNK) {
+            Integer endIndex = Math.min(i + CHUNK, totalSize);
+            
+            // Create slice manually instead of using subList
+            List<Id> slice = new List<Id>();
+            for (Integer j = i; j < endIndex; j++) {
+                slice.add(opportunityIds.get(j));
+            }
+            
             List<QB_OpportunityInvoiceSync.Input> inputs = new List<QB_OpportunityInvoiceSync.Input>();
 
             for (Id oppId : slice) {

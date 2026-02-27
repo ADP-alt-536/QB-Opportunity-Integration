@@ -22,39 +22,46 @@ private class QB_OpportunitySyncTests {
     // Create test data for Opportunities and Accounts
     @TestSetup
     static void setupData() {
+        // Get RecordTypes
+        RecordType renewalRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'Membership Recurring/Renewal Opportunities' LIMIT 1];
+        RecordType newMemberRT = [SELECT Id FROM RecordType WHERE SObjectType = 'Opportunity' AND Name = 'New Membership Opportunities' LIMIT 1];
+
         // 1. Accounts
         Account a = new Account(
             Name = 'Acme Corp',
             Phone = '555-111-2222',
             BillingStreet = '1 Main',
             BillingCity = 'San Francisco',
-            BillingState = 'CA',
+            BillingState = 'California',
             BillingPostalCode = '94105',
-            BillingCountry = 'US'
+            BillingCountry = 'United States'
         );
         insert a;
 
-        // 2. Opportunities
+        // 2. Opportunities with RecordTypes
         Opportunity o1 = new Opportunity(
-            Name = 'Opp Paid Path',
+            Name = 'Opp Renewal',
+            RecordTypeId = renewalRT.Id,
             StageName = 'Prospecting',
             CloseDate = System.today(),
             Amount = 123.45,
+            Custom_Membership_Dues__c = 50.00,
+            Calculated_Dues_Amount__c = '123.45',
             AccountId = a.Id
         );
         Opportunity o2 = new Opportunity(
-            Name = 'Opp Skip Not Paid',
+            Name = 'Opp New Member',
+            RecordTypeId = newMemberRT.Id,
             StageName = 'Prospecting',
             CloseDate = System.today(),
-            Amount = 50,
+            Amount = 250.00,
             AccountId = a.Id
         );
         insert new List<Opportunity>{o1, o2};
     }
 
-    // Helper method to simulate CMDT record in test context
-    @TestVisible
-    static QB_Config__mdt createTestConfig() {
+    // Helper method to create test config
+    private static QB_Config__mdt createTestConfig() {
         QB_Config__mdt cfg = new QB_Config__mdt(
             MasterLabel = 'Org Defaults',
             Realm_Id__c = '123456789',
@@ -64,15 +71,18 @@ private class QB_OpportunitySyncTests {
     }
 
     @IsTest
-    static void testInvocableHappyPath() {
+    static void testInvocableWithTwoLineItems() {
         Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
 
         // Inject test CMDT record
         QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [SELECT Id, Name, StageName FROM Opportunity WHERE Name = 'Opp Paid Path' LIMIT 1];
+        Opportunity o = [SELECT Id, Name, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c FROM Opportunity WHERE Name = 'Opp Renewal' LIMIT 1];
         o.StageName = 'Paid';
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();
+        o.Amount_Paid__c = 123.45;
         update o;
 
         // Call invocable directly
@@ -92,14 +102,51 @@ private class QB_OpportunitySyncTests {
     }
 
     @IsTest
+    static void testInvocableWithSingleLineItem() {
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
+
+        // Inject test CMDT record
+        QB_Service.getTestableConfig = createTestConfig();
+
+        Opportunity o = [SELECT Id, StageName, Effective_Date__c,
+        Paid_Date__c FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
+        o.StageName = 'Paid';
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();
+        o.Amount_Paid__c = 250.00;
+        update o;
+
+        // Call invocable directly
+        QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
+        inRec.opportunityId = o.Id;
+        inRec.defaultItemRef = '1';
+        List<QB_OpportunityInvoiceSync.Output> outs = QB_OpportunityInvoiceSync.sync(new List<QB_OpportunityInvoiceSync.Input>{inRec});
+
+        Test.stopTest();
+
+        System.assertEquals(1, outs.size(), 'Should return one result');
+        System.assertEquals(true, outs[0].success, 'Expect success');
+        System.assertEquals('Invoice created', outs[0].message, 'Should report invoice created with single line item');
+
+        Opportunity o2 = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
+        System.assertEquals('INV-999', o2.QuickBooks_Invoice_Id__c, 'Invoice Id should be written back');
+    }
+
+    @IsTest
     static void testTriggerQueuesQueueable() {
         Test.startTest();
         Test.setMock(HttpCalloutMock.class, new QbCreateMock());
         QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [SELECT Id, StageName FROM Opportunity WHERE Name = 'Opp Skip Not Paid' LIMIT 1];
+        Opportunity o = [SELECT Id, StageName, Effective_Date__c,
+        Paid_Date__c
+        FROM Opportunity WHERE Name = 'Opp New Member' LIMIT 1];
         o.StageName = 'Paid';
-        update o;
+        o.Effective_Date__c = System.today();
+        o.Paid_Date__c = System.today();    
+        o.Amount_Paid__c = 250.00;
+         update o;
 
         Test.stopTest();
 
