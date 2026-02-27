@@ -102,10 +102,6 @@ private class QB_OpportunitySyncTests {
 
     @IsTest
     static void testInvocableWithTwoLineItems() {
-        Test.startTest();
-        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
-
         Account a = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
         RecordType renewalRT = [
             SELECT Id
@@ -130,6 +126,10 @@ private class QB_OpportunitySyncTests {
         );
         insert o;
 
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
+        QB_Service.getTestableConfig = createTestConfig();
+
         QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
         inRec.opportunityId = o.Id;
         inRec.defaultItemRef = '1';
@@ -149,10 +149,6 @@ private class QB_OpportunitySyncTests {
 
     @IsTest
     static void testInvocableWithSingleLineItem() {
-        Test.startTest();
-        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
-
         Account a = [SELECT Id FROM Account WHERE Name = 'Acme Corp' LIMIT 1];
         RecordType newMemberRT = [
             SELECT Id
@@ -174,6 +170,10 @@ private class QB_OpportunitySyncTests {
             Amount_Paid__c = 250.00
         );
         insert o;
+
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
+        QB_Service.getTestableConfig = createTestConfig();
 
         QB_OpportunityInvoiceSync.Input inRec = new QB_OpportunityInvoiceSync.Input();
         inRec.opportunityId = o.Id;
