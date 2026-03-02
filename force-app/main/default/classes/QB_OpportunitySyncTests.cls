@@ -19,6 +19,27 @@ private class QB_OpportunitySyncTests {
         }
     }
 
+    private class QbBodyCaptureMock implements HttpCalloutMock {
+        public String lastInvoiceRequestBody;
+
+        public HTTPResponse respond(HTTPRequest req) {
+            HttpResponse res = new HttpResponse();
+            res.setStatusCode(200);
+            res.setStatus('200 OK');
+
+            String endpoint = req.getEndpoint();
+            if (endpoint != null && endpoint.toLowerCase().contains('/customer')) {
+                res.setBody('{"Customer":{"Id":"CUST-456","DisplayName":"Test"}}');
+            } else if (endpoint != null && endpoint.toLowerCase().contains('/invoice')) {
+                lastInvoiceRequestBody = req.getBody();
+                res.setBody('{"Invoice":{"Id":"INV-111","DocNumber":"2001","TotalAmt":100.00}}');
+            } else {
+                res.setBody('{"ok":true}');
+            }
+            return res;
+        }
+    }
+
     @TestSetup
     static void setupData() {
         RecordType renewalRT;
@@ -244,5 +265,44 @@ static void testTriggerQueuesQueueable() {
         System.assertEquals('CUST-123', custId);
         a = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :a.Id];
         System.assertEquals('CUST-123', a.QuickBooks_Customer_Id__c);
+    }
+
+    @IsTest
+    static void testCreateInvoiceIncludesCustomerRef() {
+        QbBodyCaptureMock captureMock = new QbBodyCaptureMock();
+
+        Test.startTest();
+        Test.setMock(HttpCalloutMock.class, captureMock);
+        QB_Service.getTestableConfig = createTestConfig();
+
+        Account a = [
+            SELECT Id, Name, QuickBooks_Customer_Id__c, Primary_Contact__r.Email,
+                   BillingStreet, BillingCity, BillingState, BillingPostalCode, BillingCountry
+            FROM Account
+            WHERE Name = 'Acme Corp'
+            LIMIT 1
+        ];
+        Opportunity o = [
+            SELECT Id, Name, Amount, RecordTypeId, RecordType.Name,
+                   QuickBooks_Invoice_Number__c, Custom_Membership_Dues__c, Calculated_Dues_Amount__c
+            FROM Opportunity
+            WHERE Name = 'Opp New Member'
+            LIMIT 1
+        ];
+
+        String invoiceId = QB_Service.createInvoiceFromOpportunity(o, a, 'CUST-456', '1', false);
+
+        Test.stopTest();
+
+        System.assertEquals('INV-111', invoiceId, 'Should return the invoice Id from the mock response');
+        System.assertNotEquals(null, captureMock.lastInvoiceRequestBody, 'Invoice request body should have been captured');
+        System.assert(
+            captureMock.lastInvoiceRequestBody.contains('"CustomerRef"'),
+            'Invoice request body must include CustomerRef. Body was: ' + captureMock.lastInvoiceRequestBody
+        );
+        System.assert(
+            captureMock.lastInvoiceRequestBody.contains('"value":"CUST-456"'),
+            'Invoice request body must include the customer Id value. Body was: ' + captureMock.lastInvoiceRequestBody
+        );
     }
 }
