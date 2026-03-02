@@ -97,6 +97,17 @@ public with sharing class QB_Service {
         String realmId = getRealmId();
 
         QB_Models.InvoiceCreateReq req = new QB_Models.InvoiceCreateReq();
+
+        // Set customer reference
+        QB_Models.CustomerReference custRef = new QB_Models.CustomerReference();
+        custRef.value = customerId;
+        req.CustomerRef = custRef;
+
+        // Set invoice number from Salesforce (if provided)
+        if (String.isNotBlank(opp.QuickBooks_Invoice_Number__c)) {
+            req.DocNumber = opp.QuickBooks_Invoice_Number__c;
+        }
+
         List<QB_Models.InvoiceLine> lines = new List<QB_Models.InvoiceLine>();
 
         // LINE 1: Determine line item label based on RecordType

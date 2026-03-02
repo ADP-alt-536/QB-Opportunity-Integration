@@ -70,8 +70,9 @@ public with sharing class QB_OpportunityInvoiceSync {
 
         // Load Opportunities
         Map<Id, Opportunity> opps = new Map<Id, Opportunity>([
-            SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c, RecordType.Name,
-                   Custom_Membership_Dues__c, Calculated_Dues_Amount__c
+            SELECT Id, Name, Amount, StageName, AccountId, QuickBooks_Invoice_Id__c,
+                   QuickBooks_Invoice_Number__c,
+                   RecordType.Name, Custom_Membership_Dues__c, Calculated_Dues_Amount__c
             FROM Opportunity
             WHERE Id IN :oppIds
             WITH USER_MODE
