@@ -192,23 +192,30 @@ static void testTriggerQueuesQueueable() {
     ];
 
     // Prove we are actually transitioning into Paid
+    System.debug('BEFORE UPDATE - StageName: ' + o.StageName);
     System.assertNotEquals(QB_Enums.STAGE_PAID, o.StageName, 'Precondition: Opp should not already be Paid in @TestSetup');
 
     o.StageName = QB_Enums.STAGE_PAID;
-    o.Amount = 250.00; // important if invoice creation uses Opportunity.Amount
+    o.Amount = 250.00;
     o.Effective_Date__c = System.today();
     o.Paid_Date__c = System.today();
     o.Amount_Paid__c = 250.00;
 
-    Test.startTest();
-    update o;  // Trigger fires, enqueues job
-    Test.stopTest();  // Job executes here with proper mocks
+    System.debug('ABOUT TO UPDATE - New StageName will be: ' + o.StageName);
+    System.debug('QB_Enums.STAGE_PAID constant: ' + QB_Enums.STAGE_PAID);
 
-    // Verify stage update actually stuck
+    Test.startTest();
+    update o;
+    
+    // Check if stage stuck
     Opportunity afterUpdate = [SELECT StageName FROM Opportunity WHERE Id = :o.Id];
+    System.debug('AFTER UPDATE - StageName: ' + afterUpdate.StageName);
     System.assertEquals(QB_Enums.STAGE_PAID, afterUpdate.StageName, 'StageName should be Paid after update');
+    
+    Test.stopTest();
 
     Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
+    System.debug('AFTER STOPTEST - Invoice ID: ' + refreshed.QuickBooks_Invoice_Id__c);
     System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
 
     Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
