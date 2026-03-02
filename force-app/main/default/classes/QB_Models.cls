@@ -26,8 +26,15 @@ public with sharing class QB_Models {
         public String DisplayName;
     }
 
+    // Customer Reference (used in Invoice)
+    public class CustomerReference {
+        public String value;
+    }
+
     // Invoice Request
     public class InvoiceCreateReq {
+        public CustomerReference CustomerRef;
+        public String DocNumber;
         public List<InvoiceLine> Line;
     }
 
