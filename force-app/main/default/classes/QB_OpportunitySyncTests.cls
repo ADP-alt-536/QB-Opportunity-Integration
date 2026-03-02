@@ -178,41 +178,42 @@ private class QB_OpportunitySyncTests {
         System.assertEquals('CUST-123', a2.QuickBooks_Customer_Id__c);
     }
 
-    @IsTest
-    static void testTriggerQueuesQueueable() {
-        Test.startTest();
-        Test.setMock(HttpCalloutMock.class, new QbCreateMock());
-        QB_Service.getTestableConfig = createTestConfig();
+   @IsTest
+static void testTriggerQueuesQueueable() {
+    // Set up mocks BEFORE Test.startTest()
+    Test.setMock(HttpCalloutMock.class, new QbCreateMock());
+    QB_Service.getTestableConfig = createTestConfig();
 
-        Opportunity o = [
-            SELECT Id, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c, AccountId
-            FROM Opportunity
-            WHERE Name = 'Opp New Member'
-            LIMIT 1
-        ];
+    Opportunity o = [
+        SELECT Id, StageName, Effective_Date__c, Paid_Date__c, Amount_Paid__c, AccountId
+        FROM Opportunity
+        WHERE Name = 'Opp New Member'
+        LIMIT 1
+    ];
 
-        // Prove we are actually transitioning into Paid
-        System.assertNotEquals(QB_Enums.STAGE_PAID, o.StageName, 'Precondition: Opp should not already be Paid in @TestSetup');
+    // Prove we are actually transitioning into Paid
+    System.assertNotEquals(QB_Enums.STAGE_PAID, o.StageName, 'Precondition: Opp should not already be Paid in @TestSetup');
 
-        o.StageName = QB_Enums.STAGE_PAID;
-        o.Amount = 250.00; // important if invoice creation uses Opportunity.Amount
-        o.Effective_Date__c = System.today();
-        o.Paid_Date__c = System.today();
-        o.Amount_Paid__c = 250.00;
-        update o;
+    o.StageName = QB_Enums.STAGE_PAID;
+    o.Amount = 250.00; // important if invoice creation uses Opportunity.Amount
+    o.Effective_Date__c = System.today();
+    o.Paid_Date__c = System.today();
+    o.Amount_Paid__c = 250.00;
 
-        // Verify stage update actually stuck before we stopTest/flush async
-        Opportunity afterUpdate = [SELECT StageName FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals(QB_Enums.STAGE_PAID, afterUpdate.StageName, 'StageName should be Paid after update');
+    Test.startTest();
+    update o;  // Trigger fires, enqueues job
+    Test.stopTest();  // Job executes here with proper mocks
 
-        Test.stopTest();
+    // Verify stage update actually stuck
+    Opportunity afterUpdate = [SELECT StageName FROM Opportunity WHERE Id = :o.Id];
+    System.assertEquals(QB_Enums.STAGE_PAID, afterUpdate.StageName, 'StageName should be Paid after update');
 
-        Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
-        System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
+    Opportunity refreshed = [SELECT QuickBooks_Invoice_Id__c FROM Opportunity WHERE Id = :o.Id];
+    System.assertEquals('INV-999', refreshed.QuickBooks_Invoice_Id__c, 'Trigger path should write back invoice id');
 
-        Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
-        System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c, 'Trigger path should write back customer id');
-    }
+    Account acc = [SELECT QuickBooks_Customer_Id__c FROM Account WHERE Id = :o.AccountId];
+    System.assertEquals('CUST-123', acc.QuickBooks_Customer_Id__c, 'Trigger path should write back customer id');
+}
 
     @IsTest
     static void testEnsureCustomerWritesBack() {
